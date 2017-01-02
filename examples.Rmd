@@ -1,0 +1,30 @@
+---
+title: "map-examples"
+author: "Steve Simon"
+date: "December 29, 2016"
+output: html_document
+---
+
+```{r setup}
+library("dplyr")
+library("ggmap")
+library("lubridate")
+library("magrittr")
+library("tidyr")
+library("tibble")
+
+r <- 6371
+p <- 2*pi*r / 360
+a <- cos(39*pi/180)
+```
+
+Latitude starts at 0 at the equator, goes up to 180 degrees at the North Pole, and down to -180 degrees at the South Pole. Longitude stats at 0 at the Greenwich Meridian, goes up to 180 as you head west and down to -180 as you head east. The radius of the earth is roughly `r r`. Multiply this by 2 pi and divide by 360 to get `r round(p, 1)` kilometers per degree of latitude. Longitude is a bit trickier. At the equator, a degree of longitude is the same as a degree of latitude. But things shrink as you move towards the poles. You have to adjust for this, and the adjustment factor equals the cosine of the latitude. So, for example, Kansas City is roughly at 39 degrees of latitude, so the adjustment factor is `r round(a, 3)`, making a degree of longitude only `r round(p*a, 1)` kilometers.
+
+This is a reasonable approximation, but you can adjust for the fact that the earth is not a perfect sphere (it is slightly flatter at the poles than at the equator). You can also adjust for the curvature of the earth if the distances are far enough apart. 
+
+One last thing: I usually get this wrong, but when you draw a plot, longitude goes on the x-axis and latitude goes on the y-axis.
+
+`{r propery_violations, eval=FALSE}
+tst <- read.csv(file="property violations kcmo.csv", header=FALSE)
+qmplot(lon, lat, data=pos)
+```
