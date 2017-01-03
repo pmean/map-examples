@@ -24,6 +24,10 @@ This is a reasonable approximation, but you can adjust for the fact that the ear
 
 One last thing: I usually get this wrong, but when you draw a plot, longitude goes on the x-axis and latitude goes on the y-axis.
 
+Please download the 311 center center service requests file from 
+
+https://data.kcmo.org/browse?category=311
+
 ```{r propery_violations}
 fn <- "311_Call_Center_Service_Requests.csv"
 cc <- read.csv(file=fn, header=TRUE, as.is=TRUE)
