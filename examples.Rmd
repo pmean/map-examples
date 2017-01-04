@@ -24,6 +24,55 @@ This is a reasonable approximation, but you can adjust for the fact that the ear
 
 One last thing: I usually get this wrong, but when you draw a plot, longitude goes on the x-axis and latitude goes on the y-axis.
 
+The file Track 502.gpx should be available at my github site.
+
+The "interesting" lines in this file look something like
+
+"<trkpt lat=38.8788925 lon=-94.6658353>" 
+
+or
+
+"<ele>295.312</ele>"                    
+
+or
+
+"<time>2017-01-01T16:02:04.212Z</time>"
+
+```{r gpx}
+"Track 502.gpx" %>% read.delim(header=FALSE, as.is=TRUE, sep="~") -> gpx_lines
+
+gpx <- NULL
+gpx_lines$V1 %>%
+  grep("<time>", ., value=TRUE) %>%
+  sub(".+T", "", .) %>%
+  sub("Z</time>", "", .) %>%
+  as.numeric  %>%
+  as_tibble %>%
+  bind_cols(gpx) %>%
+  rename(timd=value) -> gpx
+
+gpx_lines$V1 %>%
+  grep("trkpt lat=", ., value=TRUE) %>%
+  sub("<trkpt lat=", "", .) %>%
+  sub(" lon=.+", "", .) %>%
+  as.numeric  %>%
+  as_tibble %>%
+  bind_cols(gpx) %>%
+  rename(lat=value) -> gpx
+
+gpx_lines$V1 %>%
+  grep("trkpt lat=", ., value=TRUE) %>%
+  sub(".+ lon=", "", .) %>%
+  sub(">", "", .) %>%
+  as.numeric  %>%
+  as_tibble %>%
+  bind_cols(gpx) %>%
+  rename(lon=value) -> gpx
+head(gpx)
+
+qmplot(lon, lat, data=gpx)
+```
+
 Please download the 311 center center service requests file from 
 
 https://data.kcmo.org/browse?category=311
