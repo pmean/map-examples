@@ -36,51 +36,65 @@ I run a couple of miles every second or third day and participate in a few timed
 
 The file Track 502.gpx should be available at my github site.
 
+```{r read_gpx}
+"Track 502.gpx" %>% read.delim(header=FALSE, as.is=TRUE, sep="~") -> gpx_lines
+```
+
 The "interesting" lines in this file look something like
 
-"<trkpt lat=38.8788925 lon=-94.6658353>" 
+`r gpx_lines[5, ]`
 
 or
 
-"<ele>295.312</ele>"                    
+`r gpx_lines[6, ]`
 
 or
 
-"<time>2017-01-01T16:02:04.212Z</time>"
+`r gpx_lines[7, ]`
+
 
 There are other lines in the file which you can ignore safely. The first step is to pull out the relevant pieces of information amid all the xml code. I use regular expressions to do this.
 
 ```{r extract_from_gpx}
-"Track 502.gpx" %>% read.delim(header=FALSE, as.is=TRUE, sep="~") -> gpx_lines
-
 gpx <- NULL
-gpx_lines$V1 %>%
-  grep("<time>", ., value=TRUE) %>%
-  sub(".+T", "", .) %>%
-  sub("Z</time>", "", .) %>%
-  as.numeric  %>%
-  as_tibble %>%
-  bind_cols(gpx) %>%
-  rename(timd=value) -> gpx
+gpx_lines$V1                        %>%
+  set_names("tim")                  %>%
+  grep("<time>", ., value=TRUE)     %>%
+  sub(".+T", "", .)                 %>%
+  sub("Z</time>", "", .)            %>%
+  hms                               %>%
+  diff.POSIXt                       %>%
+  as.numeric                        %>%
+  cumsum                            %>%
+  round                             %>%
+  append(0, .)                      %>%
+  tibble                            %>%
+  set_colnames("tim")               %>%
+  bind_cols(gpx)                    -> gpx
 
-gpx_lines$V1 %>%
+gpx_lines$V1                        %>%
+  set_names("lat")                  %>%
   grep("trkpt lat=", ., value=TRUE) %>%
-  sub("<trkpt lat=", "", .) %>%
-  sub(" lon=.+", "", .) %>%
-  as.numeric  %>%
-  as_tibble %>%
-  bind_cols(gpx) %>%
-  rename(lat=value) -> gpx
+  sub("<trkpt lat=", "", .)         %>%
+  sub(" lon=.+", "", .)             %>%
+  as.numeric                        %>%
+  tibble                            %>%
+  set_colnames("lat")               %>%
+  bind_cols(gpx)                    -> gpx
 
-gpx_lines$V1 %>%
+gpx_lines$V1                        %>%
+  set_names("lon")                  %>%
   grep("trkpt lat=", ., value=TRUE) %>%
-  sub(".+ lon=", "", .) %>%
-  sub(">", "", .) %>%
-  as.numeric  %>%
-  as_tibble %>%
-  bind_cols(gpx) %>%
-  rename(lon=value) -> gpx
+  sub(".+ lon=", "", .)             %>%
+  sub(">", "", .)                   %>%
+  as.numeric                        %>%
+  tibble                            %>%
+  set_colnames("lon")               %>%
+  bind_cols(gpx)                    %>%
+  mutate(xkm=lon*p*cos(lat))        %>%
+  mutate(ykm=lat*p)                  -> gpx
 head(gpx)
+names(gpx) <- c("lon", "lat", "tim", "xkm", "ykm")
 ```
 
 The ggmap library has a "one stop shopping" function, qmplot (similar to qplot in ggplot2) that will automate the process of displaying geographic co-ordinates on a graph.
