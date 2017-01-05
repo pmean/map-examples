@@ -20,9 +20,19 @@ a <- cos(39*pi/180)
 
 Latitude starts at 0 at the equator, goes up to 180 degrees at the North Pole, and down to -180 degrees at the South Pole. Longitude stats at 0 at the Greenwich Meridian, goes up to 180 as you head west and down to -180 as you head east. The radius of the earth is roughly `r r`. Multiply this by 2 pi and divide by 360 to get `r round(p, 1)` kilometers per degree of latitude. Longitude is a bit trickier. At the equator, a degree of longitude is the same as a degree of latitude. But things shrink as you move towards the poles. You have to adjust for this, and the adjustment factor equals the cosine of the latitude. So, for example, Kansas City is roughly at 39 degrees of latitude, so the adjustment factor is `r round(a, 3)`, making a degree of longitude only `r round(p*a, 1)` kilometers.
 
-This is a reasonable approximation, but you can adjust for the fact that the earth is not a perfect sphere (it is slightly flatter at the poles than at the equator). You can also adjust for the curvature of the earth if the distances are far enough apart. 
+This is a reasonable approximation, but you can adjust for the fact that the earth is not a perfect sphere (it is slightly flatter at the poles than at the equator). You can also adjust for the curvature of the earth if the distances are far enough apart. The R bloggers site has a nice summary of the more accurate formulas at
+
+https://www.r-bloggers.com/great-circle-distance-calculations-in-r/.
+
+Another post at the R bloggers site mentions functions for calculating distances from longitude and latitude values using one of two R libraries: Imap and geosphere. See
+
+http://nagraj.net/notes/calculating-geographic-distance-with-r/
 
 One last thing: I usually get this wrong, but when you draw a plot, longitude goes on the x-axis and latitude goes on the y-axis.
+
+## Example 1. A gpx file.
+
+I run a couple of miles every second or third day and participate in a few timed races (mostly 5K and 4 mile events) from time to time. I record my runs using an iPhone app, MotionX-GPS. It produces an xml file that includes geographic positions and time throughout the run. Although MotionX-GPS produces nice plots of my runs, I wanted to produce something a bit more detailed using R. Here's an example using the data from a 5K race on January 1, 2017.
 
 The file Track 502.gpx should be available at my github site.
 
@@ -38,7 +48,9 @@ or
 
 "<time>2017-01-01T16:02:04.212Z</time>"
 
-```{r gpx}
+There are other lines in the file which you can ignore safely. The first step is to pull out the relevant pieces of information amid all the xml code. I use regular expressions to do this.
+
+```{r extract_from_gpx}
 "Track 502.gpx" %>% read.delim(header=FALSE, as.is=TRUE, sep="~") -> gpx_lines
 
 gpx <- NULL
@@ -69,19 +81,86 @@ gpx_lines$V1 %>%
   bind_cols(gpx) %>%
   rename(lon=value) -> gpx
 head(gpx)
+```
 
+The ggmap library has a "one stop shopping" function, qmplot (similar to qplot in ggplot2) that will automate the process of displaying geographic co-ordinates on a graph.
+
+```{r qmplot_for_gpx_data}
 qmplot(lon, lat, data=gpx)
 ```
+
+You will see some additional examples using this data a bit later.
+
+## Example 2. KC 311 calls
+
+The city government of Kansas City, Missouri has an open data initiative and one of their more interesting data sets is information from their 311 line. The 311 line is a phone number you can dial locally that will allow you to contact the city government to register a complaint or concern.
 
 Please download the 311 center center service requests file from 
 
 https://data.kcmo.org/browse?category=311
 
-```{r propery_violations}
+```{r propery_violations, eval=FALSE}
 fn <- "311_Call_Center_Service_Requests.csv"
 cc <- read.csv(file=fn, header=TRUE, as.is=TRUE)
 names(cc) %<>% tolower
 str(cc)
+```
+
+This file does not need any serious data manipulation. Here's a quick default plot of the phyiscal location of 100 of the phone calls.
+
+```{r qmplot_for_311, eval=FALSE}
 cc_sub <- cc[1:100,]
 qmplot(longitude, latitude, data=cc_sub)
+```
+
+## Example 1, continued.
+
+You can get and store a map that covers the longitude and latitudue values in the GPX file. This allows you a bit more flexibility in how you plot data on the map.
+
+The bounding box is a range that helps insure that every longitude and latitude value falls inside the map.
+
+```{r get_bb}
+bb <- make_bbox(lon, lat, data=gpx)
+print(bb)
+```
+
+The zoom value is a number between 1 and 22. A large number (like 3) would show an entire continent. A medium number (like 10) would show an entire city. A small number (like 17) would show a few city blocks.
+
+```{r specify_zoom}
+"2401 Gillham Road Kansas City MO 64108" %>%
+  geocode %>%
+  get_map(zoom=17) %>%
+  ggmap
+
+"2401 Gillham Road Kansas City MO 64108" %>%
+  geocode %>%
+  get_map(zoom=10) %>%
+  ggmap
+
+"2401 Gillham Road Kansas City MO 64108" %>%
+  geocode %>%
+  get_map(zoom=4) %>%
+  ggmap
+
+```
+
+You can ask for a value of zoom that is just the right size for your bounding box, though, for reasons that elude me, I have needed to adjust the zoom level downward by two levels.
+
+```{r get_zoom}
+zm <- calc_zoom(bb, adjust=-2L)
+print(zm)
+```
+
+Once you have a bounding box and a zoom level, you can get a map that will cover all of your data values.
+
+Note the stucture of the objects created. The get_map function creates, by default, a 1280 by 1280 matrix of character strings that represent rgb color values in hexadecimal. Note the attributes that are stored with this matrix.
+
+The ggmap function creates an object that is mostly a bunch of functions for displaying things. This fits within the framework of the ggplot2 library. You can display the map by itself just by typing the name of the object, or you can elements to the map with functions like geom_point or geom_text.
+
+```{r get_map}
+mp <- get_map(bb, zoom=zm)
+str(mp)
+im <- ggmap(mp)
+str(im)
+im + geom_path(aes(x=lon, y=lat), data=gpx)
 ```
