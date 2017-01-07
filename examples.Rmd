@@ -13,7 +13,7 @@ library("magrittr")
 library("tidyr")
 library("tibble")
 
-r <- 6371
+r <- 6378137/1000
 p <- 2*pi*r / 360
 a <- cos(39*pi/180)
 ```
@@ -56,6 +56,13 @@ or
 There are other lines in the file which you can ignore safely. The first step is to pull out the relevant pieces of information amid all the xml code. I use regular expressions to do this.
 
 ```{r extract_from_gpx}
+path_distance <- function(lon, lat) {
+  n <- length(lon)
+  m1 <- as.matrix(cbind(lon, lat))
+  m2 <- m1[c(1,1:(n-1)), ]
+  bearing(m1, m2)
+  distCosine(m1, m2) 
+}
 gpx <- NULL
 gpx_lines$V1                        %>%
   set_names("tim")                  %>%
@@ -90,11 +97,17 @@ gpx_lines$V1                        %>%
   as.numeric                        %>%
   tibble                            %>%
   set_colnames("lon")               %>%
-  bind_cols(gpx)                    %>%
-  mutate(xkm=lon*p*cos(lat))        %>%
-  mutate(ykm=lat*p)                  -> gpx
+  bind_cols(gpx)                     -> gpx
+
+adj <- cos(gpx$lat[1]*pi/180)
+
+gpx$xkm <- 1000*append(0, diff(gpx$lon)*p*adj)
+gpx$ykm <- 1000*append(0, diff(gpx$lat)*p)
+gpx$dst <- cumsum(sqrt(gpx$xkm^2+gpx$ykm^2))
+
 head(gpx)
-names(gpx) <- c("lon", "lat", "tim", "xkm", "ykm")
+# names(gpx) <- c("lon", "lat", "tim", "xkm", "ykm", "dst")
+tail(gpx)
 ```
 
 The ggmap library has a "one stop shopping" function, qmplot (similar to qplot in ggplot2) that will automate the process of displaying geographic co-ordinates on a graph.
@@ -173,8 +186,23 @@ The ggmap function creates an object that is mostly a bunch of functions for dis
 
 ```{r get_map}
 mp <- get_map(bb, zoom=zm)
-str(mp)
+# str(mp)
 im <- ggmap(mp)
-str(im)
-im + geom_path(aes(x=lon, y=lat), data=gpx)
+gpx %>% 
+  mutate(km=dst %/% 1000) %>%
+  distinct(km, .keep_all=TRUE) -> mark
+im + 
+  geom_path(aes(x=lon, y=lat), data=gpx) +
+  geom_label(aes(x=lon, y=lat, label=km), data=mark)
+
+gpx %>% 
+  mutate(t_minutes=tim %/% 60) %>%
+  distinct(t_minutes, .keep_all=TRUE) -> bars
+
+speed <- data.frame(
+  kph=(3600/1000) * diff(bars$dst) / diff(bars$tim),
+  t=1:max(bars$t_minutes))
+
+ggplot(data=speed, aes(x=t, y=kph)) +
+  geom_line()
 ```
