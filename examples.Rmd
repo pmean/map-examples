@@ -20,15 +20,25 @@ a <- cos(39*pi/180)
 
 Latitude starts at 0 at the equator, goes up to 180 degrees at the North Pole, and down to -180 degrees at the South Pole. Longitude stats at 0 at the Greenwich Meridian, goes up to 180 as you head west and down to -180 as you head east. The radius of the earth is roughly `r r`. Multiply this by 2 pi and divide by 360 to get `r round(p, 1)` kilometers per degree of latitude. Longitude is a bit trickier. At the equator, a degree of longitude is the same as a degree of latitude. But things shrink as you move towards the poles. You have to adjust for this, and the adjustment factor equals the cosine of the latitude. So, for example, Kansas City is roughly at 39 degrees of latitude, so the adjustment factor is `r round(a, 3)`, making a degree of longitude only `r round(p*a, 1)` kilometers.
 
-This is a reasonable approximation, but you can adjust for the fact that the earth is not a perfect sphere (it is slightly flatter at the poles than at the equator). You can also adjust for the curvature of the earth if the distances are far enough apart. The R bloggers site has a nice summary of the more accurate formulas at
+My runs are short enough that you can ignore the curvature of the earth, but it can become an issue at longer distances. Consider the state of Colorado. It spans latitudes 37 degrees N to 41 degrees N, and longitudes 102 degrees 3 minutes W to 109 degrees 3 minutes W. At 37 degrees of latitude, seven degrees of longitude is `r round(7*p*cos(37*pi/180), 1)` kilometers, but higher up at 41 degrees of latitude it is only `r round(7*p*cos(41*pi/180), 1)` kilometers.
 
-https://www.r-bloggers.com/great-circle-distance-calculations-in-r/.
+Anyone who travels great distances can also take advantage of the curvature of the earth. Look at the map of the shortest route from San Francisco to Naples.
 
-Another post at the R bloggers site mentions functions for calculating distances from longitude and latitude values using one of two R libraries: Imap and geosphere. See
+http://www.gcmap.com/mapui?P=SFO-NAP
+
+These two cities are about at the same latitude, so you would think that the shortest path would be across the middle of the United States and across Spain and Portugal in Europe. But if you head through Canada, Greenland, and Northern Europe you get there a lot faster. You cross many of your longitude degrees closer to the North Pole where the degrees are much closer together. This more than compensates for swinging northeast at the start and then curving back to the southeast halfway through the trip.
+
+I won't bother with the earth's curvature in any of my calculations.
+
+If you really wanted to get things right though, you would have to adjust for the fact that the earth is not a perfect sphere (it is slightly flatter at the poles than at the equator). The R bloggers site has a nice summary of the more accurate formulas at
+
+https://www.r-bloggers.com/great-circle-distance-calculations-in-r/
+
+Another blogger mentions functions for calculating distances from longitude and latitude values using one of two R libraries: Imap and geosphere. See
 
 http://nagraj.net/notes/calculating-geographic-distance-with-r/
 
-One last thing: I usually get this wrong, but when you draw a plot, longitude goes on the x-axis and latitude goes on the y-axis.
+One last thing: I usually get this wrong, but when you draw a plot, longitude goes on the x-axis and latitude goes on the y-axis. I am writing it down here so I won't forget it again.
 
 ## Example 1. A gpx file.
 
@@ -42,16 +52,11 @@ The file Track 502.gpx should be available at my github site.
 
 The "interesting" lines in this file look something like
 
-`r gpx_lines[5, ]`
+`r gsub(">", "&gt;", gsub("<", "&lt;", gpx_lines[6, ]))`,
 
-or
+`r gsub(">", "&gt;", gsub("<", "&lt;", gpx_lines[7, ]))`, or
 
-`r gpx_lines[6, ]`
-
-or
-
-`r gpx_lines[7, ]`
-
+`r gsub(">", "&gt;", gsub("<", "&lt;", gpx_lines[8, ]))`
 
 There are other lines in the file which you can ignore safely. The first step is to pull out the relevant pieces of information amid all the xml code. I use regular expressions to do this.
 
@@ -204,5 +209,5 @@ speed <- data.frame(
   t=1:max(bars$t_minutes))
 
 ggplot(data=speed, aes(x=t, y=kph)) +
-  geom_line()
+  geom_col()
 ```
